@@ -76,60 +76,101 @@ public class PlayerMovement : NetworkBehaviour
     #region LAYERS & TAGS
     [Header("Layers & Tags")]
 	[SerializeField] private LayerMask _groundLayer;
-	#endregion
-
-    private void Awake()
-	{
-		RB = GetComponent<Rigidbody2D>();
-		AnimHandler = GetComponent<PlayerAnimator>();
-	}
-
-	private void Start()
-	{
-		SetGravityScale(Data.gravityScale);
-		IsFacingRight = true;
-	}
-
-	private void Update()
-	{
-		if (!IsOwner) return;
-        #region TIMERS
-        LastOnGroundTime -= Time.deltaTime;
-		LastOnWallTime -= Time.deltaTime;
-		LastOnWallRightTime -= Time.deltaTime;
-		LastOnWallLeftTime -= Time.deltaTime;
-
-		LastPressedJumpTime -= Time.deltaTime;
-		LastPressedDashTime -= Time.deltaTime;
-		#endregion
-
-		#region INPUT HANDLER
-		_moveInput.x = Input.GetAxisRaw("Horizontal");
-		_moveInput.y = Input.GetAxisRaw("Vertical");
-
-		if (_moveInput.x != 0)
-			CheckDirectionToFace(_moveInput.x > 0);
-
-		if(Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.J))
-        {
-			OnJumpInput();
-        }
-
-		if (Input.GetKeyUp(KeyCode.Space) || Input.GetKeyUp(KeyCode.C) || Input.GetKeyUp(KeyCode.J))
+	    #endregion
+	
+	    #region WEAPON
+	    [Header("Weapon")]
+	    // This is the transform that will hold the weapon
+	    public Transform weaponHolder;
+	    // This is the currently equipped weapon
+	    public GunSystem currentWeapon;
+	    private float nextPickUpTime;
+	    #endregion
+	
+	    private void Awake()
 		{
-			OnJumpUpInput();
+			RB = GetComponent<Rigidbody2D>();
+			AnimHandler = GetComponent<PlayerAnimator>();
 		}
-
-		if (Input.GetKeyDown(KeyCode.X) || Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.K))
+	
+		private void Start()
 		{
-			OnDashInput();
+			SetGravityScale(Data.gravityScale);
+			IsFacingRight = true;
 		}
-		#endregion
-
-		#region COLLISION CHECKS
-		if (!IsDashing && !IsJumping)
+	
+		private void Update()
 		{
-			//Ground Check
+			if (!IsOwner) return;
+	        #region TIMERS
+	        LastOnGroundTime -= Time.deltaTime;
+			LastOnWallTime -= Time.deltaTime;
+			LastOnWallRightTime -= Time.deltaTime;
+			LastOnWallLeftTime -= Time.deltaTime;
+	
+			LastPressedJumpTime -= Time.deltaTime;
+			LastPressedDashTime -= Time.deltaTime;
+			#endregion
+	
+			#region INPUT HANDLER
+			_moveInput.x = Input.GetAxisRaw("Horizontal");
+			_moveInput.y = Input.GetAxisRaw("Vertical");
+	
+			if (_moveInput.x != 0)
+				CheckDirectionToFace(_moveInput.x > 0);
+	
+			if(Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.J))
+	        {
+				OnJumpInput();
+	        }
+	
+			if (Input.GetKeyUp(KeyCode.Space) || Input.GetKeyUp(KeyCode.C) || Input.GetKeyUp(KeyCode.J))
+			{
+				OnJumpUpInput();
+			}
+	
+			if (Input.GetKeyDown(KeyCode.X) || Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.K))
+			{
+				OnDashInput();
+			}
+	
+	        if (Input.GetKeyDown(KeyCode.E) && Time.time > nextPickUpTime && currentWeapon == null)
+	        {
+	            Collider2D[] colliders = Physics2D.OverlapCircleAll(transform.position, 2f);
+	            float minDistance = float.MaxValue;
+	            Weapon closestWeapon = null;
+
+	            foreach (Collider2D collider in colliders)
+	            {
+	                Weapon weapon = collider.GetComponent<Weapon>();
+	                if (weapon != null && weapon.onGround.Value)
+	                {
+	                    float distance = Vector2.Distance(transform.position, weapon.transform.position);
+	                    if (distance < minDistance)
+	                    {
+	                        minDistance = distance;
+	                        closestWeapon = weapon;
+	                    }
+	                }
+	            }
+
+	            if (closestWeapon != null)
+	            {
+	                if (closestWeapon.gunSystem != null)
+	                {
+	                    currentWeapon = closestWeapon.gunSystem;
+	                    closestWeapon.onGround.Value = false;
+	                    closestWeapon.transform.SetParent(weaponHolder);
+	                    closestWeapon.transform.localPosition = Vector3.zero;
+	                    closestWeapon.transform.localRotation = Quaternion.identity;
+	                }
+	            }
+	        }
+	        #endregion
+	
+			#region COLLISION CHECKS
+			if (!IsDashing && !IsJumping)
+			{			//Ground Check
 			if (Physics2D.OverlapBox(_groundCheckPoint.position, _groundCheckSize, 0, _groundLayer)) //checks if set box overlaps with ground
 			{
 				if(LastOnGroundTime < -0.1f)

@@ -38,6 +38,25 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     private Coroutine flashCoroutine;
     private Rigidbody2D rb;
 
+    //private NetworkedPlayer networkedPlayer;
+    private SmashCameraController cameraController;
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
+        // Subscribe to camera on spawn
+        cameraController = FindObjectOfType<SmashCameraController>();
+        if (cameraController != null)
+        {
+            cameraController.SubscribePlayer(transform);
+        }
+        else
+        {
+            Debug.LogWarning("SmashCameraController not found! Player won't be tracked by camera.");
+        }
+    }
+
     private void Awake()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
@@ -72,7 +91,18 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
         if (!IsServer)
             return;
 
+        // Notify network first - this will unsubscribe on all clients
+        //if (networkedPlayer != null && IsOwner)
+        //{
+        //    networkedPlayer.SendDeathServerRpc();
+        //}
+
+
         isDead.Value = true;
+        if (cameraController != null)
+        {
+            cameraController.UnsubscribePlayer(transform);
+        }
         StopDamageFlashClientRpc();
 
         DieClientRpc(hitDirection.normalized);
